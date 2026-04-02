@@ -1,0 +1,761 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum UserRole {
+  SELLER
+  BUYER
+  MIXED
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum AuctionStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  CANCELLED
+  EXPIRED
+}
+
+enum BidStatus {
+  PENDING
+  WINNING
+  WON
+  LOST
+  WITHDRAWN
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum ReportStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  NEW_BID
+  BID_OUTBID
+  AUCTION_WON
+  AUCTION_CLOSED
+  AUCTION_EXPIRED
+  TRANSACTION
+  PRICE_ALERT_TRIGGERED
+  SYSTEM
+}
+
+enum AlertCondition {
+  ABOVE
+  BELOW
+}
+
+enum BackOfficeRole {
+  SUPER_ADMIN
+  ADMIN
+  ANALYST
+  VIEWER
+  CUSTOM
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+enum SubscriptionType {
+  MONTHLY
+  YEARLY
+  PERMANENT
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  SUBSCRIPTION
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum BONotificationType {
+  WALLET
+  SYSTEM
+  AUCTION
+  ALERT
+  SECURITY
+  SUBSCRIPTION
+  ACCOUNT
+}
+
+enum AutomationRuleType {
+  AUTO_CLOSE_AUCTION
+  AUTO_SUSPEND_ACCOUNT
+  PRICE_ALERT_CHECK
+  REPORT_GENERATION
+  DAILY_SUMMARY
+  WEEKLY_REPORT
+  CLEANUP_EXPIRED
+}
+
+enum AutomationRuleStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum AutomationLogStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+// ============ MODELS ============
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  email        String?
+  name         String?
+  enterprise   String?
+  role         UserRole @default(SELLER)
+  status       UserStatus @default(ACTIVE)
+  language     String   @default("fr")
+  avatar       String?
+  rating       Float    @default(0)
+  totalRatings Int      @default(0)
+  fcmToken     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  auctions            Auction[]
+  bids                Bid[]
+  notifications       Notification[]
+  priceAlerts         PriceAlert[]
+  reports             Report[]            @relation("ReporterReports")
+  reviewsGiven        Review[]            @relation("ReviewGiven")
+  reviewsReceived     Review[]            @relation("ReviewReceived")
+  transactionsAsBuyer Transaction[]       @relation("BuyerTransactions")
+  transactionsAsSeller Transaction[]      @relation("SellerTransactions")
+}
+
+model OliveType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  nameAr      String?
+  nameFr      String?
+  nameEn      String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  auctions    Auction[]
+  priceAlerts PriceAlert[]
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameAr    String?
+  nameFr    String?
+  nameEn    String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  auctions       Auction[]
+  priceAlerts    PriceAlert[]
+  cooperatives   Cooperative[]
+}
+
+model Auction {
+  id           String         @id @default(cuid())
+  sellerId     String
+  oliveTypeId  String
+  regionId     String
+  title        String
+  description  String?
+  quantity     Float
+  reservePrice Float?
+  endDate      DateTime
+  status       AuctionStatus  @default(DRAFT)
+  location     String?
+  latitude     Float?
+  longitude    Float?
+  viewCount    Int            @default(0)
+  highestBidId String?
+  winningBidId String?
+  isOffline    Boolean        @default(false)
+  publishedAt  DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  seller    User            @relation(fields: [sellerId], references: [id])
+  oliveType OliveType       @relation(fields: [oliveTypeId], references: [id])
+  region    Region          @relation(fields: [regionId], references: [id])
+  images    AuctionImage[]
+  bids      Bid[]
+  reports   Report[]
+  transaction Transaction?
+
+  // Indexes
+  @@index([sellerId])
+  @@index([status])
+  @@index([oliveTypeId])
+  @@index([regionId])
+}
+
+model AuctionImage {
+  id        String   @id @default(cuid())
+  auctionId String
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+}
+
+model Bid {
+  id         String     @id @default(cuid())
+  auctionId  String
+  buyerId    String
+  pricePerKg Float
+  totalPrice Float
+  message    String?
+  status     BidStatus  @default(PENDING)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  // Relations
+  auction    Auction     @relation(fields: [auctionId], references: [id])
+  buyer      User        @relation(fields: [buyerId], references: [id])
+  transaction Transaction?
+
+  // Indexes
+  @@index([auctionId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model Transaction {
+  id          String             @id @default(cuid())
+  auctionId   String             @unique
+  sellerId    String
+  buyerId     String
+  bidId       String             @unique
+  finalPrice  Float
+  status      TransactionStatus  @default(PENDING)
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Relations
+  auction  Auction    @relation(fields: [auctionId], references: [id])
+  seller   User       @relation("SellerTransactions", fields: [sellerId], references: [id])
+  buyer    User       @relation("BuyerTransactions", fields: [buyerId], references: [id])
+  bid      Bid        @relation(fields: [bidId], references: [id])
+  reviews  Review[]
+}
+
+model Review {
+  id              String   @id @default(cuid())
+  transactionId   String   @unique
+  reviewerId      String
+  reviewedUserId  String
+  rating          Int
+  comment         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  reviewer      User        @relation("ReviewGiven", fields: [reviewerId], references: [id])
+  reviewedUser  User        @relation("ReviewReceived", fields: [reviewedUserId], references: [id])
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  auctionId      String?
+  reportedUserId String?
+  reason         String
+  description    String?
+  status         ReportStatus @default(PENDING)
+  resolution     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  reporter  User    @relation("ReporterReports", fields: [reporterId], references: [id])
+  auction   Auction? @relation(fields: [auctionId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+model PriceAlert {
+  id           String          @id @default(cuid())
+  userId       String
+  oliveTypeId  String?
+  regionId     String?
+  condition    AlertCondition
+  threshold    Float
+  isActive     Boolean         @default(true)
+  triggeredAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Relations
+  user       User    @relation(fields: [userId], references: [id])
+  oliveType  OliveType? @relation(fields: [oliveTypeId], references: [id])
+  region     Region?    @relation(fields: [regionId], references: [id])
+
+  // Indexes
+  @@index([userId])
+  @@index([isActive])
+}
+
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BackOfficeAccount {
+  id                  String            @id @default(cuid())
+  email               String            @unique
+  name                String
+  enterprise          String?
+  phone               String
+  role                BackOfficeRole
+  status              AccountStatus
+  customPermissions   String?
+  maxRequestsPerDay   Int?
+  maxExportsPerDay    Int?
+  maxExportsPerMonth  Int?
+  requestsToday       Int               @default(0)
+  exportsToday        Int               @default(0)
+  exportsThisMonth    Int               @default(0)
+  lastResetDate       DateTime?
+  subscriptionType    SubscriptionType?
+  subscriptionStart   DateTime?
+  subscriptionEnd     DateTime?
+  passwordHash        String?
+  otpCode             String?
+  otpExpiresAt        DateTime?
+  emailVerified       Boolean           @default(false)
+  sessionToken        String?           @unique
+  sessionExpiresAt    DateTime?
+  lastLogin           DateTime?
+  loginCount          Int               @default(0)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  // Relations
+  auditLogs        AuditLog[]
+  wallet           Wallet?
+  notifications    BONotification[] @relation("AccountNotifications")
+  generatedReports GeneratedReport[]  @relation("AccountGeneratedReports")
+  chatMembers      ChatMember[]       @relation("AccountChatMembers")
+  webhooks         Webhook[]          @relation("AccountWebhooks")
+
+  // Indexes
+  @@index([email])
+  @@index([status])
+  @@index([role])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  accountId  String
+  action     String
+  resource   String?
+  resourceId String?
+  details    String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  account BackOfficeAccount @relation(fields: [accountId], references: [id])
+}
+
+// ============ WALLET ============
+
+model Wallet {
+  id          String   @id @default(cuid())
+  accountId   String   @unique
+  balance     Float    @default(0)
+  currency    String   @default("TND")
+  totalCredited Float   @default(0)
+  totalDebited  Float   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  account     BackOfficeAccount @relation(fields: [accountId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id          String                 @id @default(cuid())
+  walletId    String
+  type        WalletTransactionType
+  amount      Float
+  status      WalletTransactionStatus @default(COMPLETED)
+  description String?
+  reference   String?
+  performedBy String?
+  createdAt   DateTime               @default(now())
+
+  // Relations
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  // Indexes
+  @@index([walletId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============ BO NOTIFICATIONS ============
+
+model BONotification {
+  id        String             @id @default(cuid())
+  accountId String
+  type      BONotificationType
+  title     String
+  message   String
+  data      String?
+  isRead    Boolean            @default(false)
+  createdAt DateTime           @default(now())
+
+  // Relations
+  account BackOfficeAccount @relation("AccountNotifications", fields: [accountId], references: [id])
+
+  // Indexes
+  @@index([accountId])
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ============ AUTOMATION ============
+
+model AutomationRule {
+  id          String              @id @default(cuid())
+  name        String
+  type        AutomationRuleType
+  status      AutomationRuleStatus @default(ACTIVE)
+  config      String?
+  cronExpr    String?
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  runCount    Int                 @default(0)
+  failCount   Int                 @default(0)
+  createdBy   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations
+  logs AutomationLog[]
+
+  // Indexes
+  @@index([type])
+  @@index([status])
+}
+
+model AutomationLog {
+  id          String              @id @default(cuid())
+  ruleId      String
+  status      AutomationLogStatus
+  duration    Int?
+  recordsProcessed Int?
+  message     String?
+  error       String?
+  startedAt   DateTime            @default(now())
+  completedAt DateTime?
+
+  // Relations
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([ruleId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// ============ PDF REPORTS ============
+
+enum PDFReportType {
+  AUCTIONS_SUMMARY
+  TRANSACTIONS_REPORT
+  USERS_ACTIVITY
+  FINANCIAL_OVERVIEW
+  DASHBOARD_SNAPSHOT
+}
+
+model GeneratedReport {
+  id          String        @id @default(cuid())
+  accountId   String
+  type        PDFReportType
+  title       String
+  dateFrom    DateTime
+  dateTo      DateTime
+  filters     String?
+  pageCount   Int           @default(1)
+  fileSize    Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  // Relations
+  account BackOfficeAccount @relation("AccountGeneratedReports", fields: [accountId], references: [id])
+
+  // Indexes
+  @@index([accountId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ============ CHAT ============
+
+model ChatRoom {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  isPrivate   Boolean       @default(false)
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  messages ChatMessage[]
+  members  ChatMember[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  senderId  String
+  senderName String?
+  content   String
+  type      String   @default("TEXT")
+  createdAt DateTime @default(now())
+
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([createdAt])
+}
+
+model ChatMember {
+  id        String   @id @default(cuid())
+  roomId    String
+  accountId String
+  lastRead  DateTime?
+  createdAt DateTime @default(now())
+
+  room    ChatRoom           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  account BackOfficeAccount @relation("AccountChatMembers", fields: [accountId], references: [id])
+
+  @@unique([roomId, accountId])
+  @@index([accountId])
+}
+
+// ============ QUALITY LABELS ============
+
+enum LabelStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_RENEWAL
+  EXPIRED
+}
+
+enum LabelCategory {
+  AOP
+  AOC
+  BIO
+  NATURE
+  FAIR_TRADE
+  TRADITIONNEL
+  PREMIUM
+  CUSTOM
+}
+
+model QualityLabel {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  category    LabelCategory
+  status      LabelStatus   @default(ACTIVE)
+  icon        String?
+  certifier   String?
+  validFrom   DateTime?
+  validUntil  DateTime?
+  criteria    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+// ============ CALENDAR ============
+
+enum CalendarEventType {
+  AUCTION_START
+  AUCTION_END
+  MAINTENANCE
+  MEETING
+  REPORT_DUE
+  SUBSCRIPTION_RENEWAL
+  CUSTOM
+}
+
+model CalendarEvent {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  type        CalendarEventType
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean            @default(false)
+  color       String             @default("#45A452")
+  location    String?
+  createdBy   String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([type])
+  @@index([startDate])
+}
+
+// ============ COOPERATIVES ============
+
+enum CooperativeStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  INACTIVE
+}
+
+model Cooperative {
+  id            String            @id @default(cuid())
+  name          String
+  description   String?
+  regionId      String?
+  address       String?
+  phone         String?
+  email         String?
+  website       String?
+  memberCount   Int               @default(0)
+  annualVolume  Float?
+  status        CooperativeStatus @default(ACTIVE)
+  certification String?
+  foundedYear   Int?
+  contactPerson String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  region Region? @relation(fields: [regionId], references: [id])
+
+  @@index([regionId])
+  @@index([status])
+}
+
+// ============ WEBHOOKS ============
+
+enum WebhookEvent {
+  AUCTION_CREATED
+  AUCTION_CLOSED
+  BID_PLACED
+  TRANSACTION_COMPLETED
+  USER_REGISTERED
+  WALLET_CREDIT
+  WALLET_DEBIT
+  REPORT_GENERATED
+}
+
+enum WebhookStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Webhook {
+  id          String        @id @default(cuid())
+  accountId   String
+  name        String
+  url         String
+  secret      String?
+  events      String
+  status      WebhookStatus @default(ACTIVE)
+  lastTrigger DateTime?
+  successCount Int           @default(0)
+  failCount   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  account BackOfficeAccount @relation("AccountWebhooks", fields: [accountId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([accountId])
+  @@index([status])
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  event       String
+  payload     String
+  statusCode  Int?
+  response    String?
+  duration    Int?
+  success     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([createdAt])
+}
