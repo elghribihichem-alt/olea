@@ -275,7 +275,7 @@ export default function LoginPage() {
             <div className="mt-6 text-center">
               <button
                 type="button"
-                onClick={() => navigate('forgot-password')}
+                onClick={() => setCurrentPage('forgot-password')}
                 className="text-sm font-medium text-[#45A452] hover:text-[#1F6E2B] transition-colors cursor-pointer"
               >
                 Mot de passe oublié ?

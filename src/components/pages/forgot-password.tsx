@@ -246,9 +246,15 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitting(true)
     try {
-      // TODO: Replace with actual API call
-      // await fetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
-      await new Promise((resolve) => setTimeout(resolve, 1200))
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erreur serveur')
+      }
       setCountdown(60)
       setCurrentStep(1)
     } catch {
@@ -315,9 +321,8 @@ export default function ForgotPasswordPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      // TODO: Replace with actual API call
-      // await fetch('/api/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, code }) })
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Auto-advance to step 3 — actual OTP + password reset happens in step 3
+      await new Promise((resolve) => setTimeout(resolve, 500))
       setCurrentStep(2)
     } catch {
       setError('Code invalide. Veuillez réessayer.')
@@ -333,8 +338,15 @@ export default function ForgotPasswordPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erreur serveur')
+      }
       setCountdown(60)
       setOtp(Array(6).fill(''))
       otpRefs.current[0]?.focus()
@@ -365,9 +377,15 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitting(true)
     try {
-      // TODO: Replace with actual API call
-      // await fetch('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, otp: otp.join(''), newPassword }) })
-      await new Promise((resolve) => setTimeout(resolve, 1200))
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: otp.join(''), newPassword }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Impossible de réinitialiser')
+      }
       // Navigate to login with success indication
       setCurrentPage('login' as any)
     } catch {

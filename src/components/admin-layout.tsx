@@ -16,6 +16,7 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bell,
   Search,
   LogOut,
@@ -79,6 +80,11 @@ import {
 } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -93,7 +99,8 @@ interface NavItem {
   icon: React.ElementType
 }
 
-const navItems: NavItem[] = [
+// Flat lookup for PageContent router & icon/title resolution
+const allNavItems: NavItem[] = [
   { key: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { key: 'map', label: 'Carte', icon: MapPin },
   { key: 'prices', label: 'Prix', icon: TrendingUp },
@@ -115,6 +122,75 @@ const navItems: NavItem[] = [
   { key: 'calendar', label: 'Calendrier', icon: CalendarDays },
   { key: 'cooperatives', label: 'Coopératives', icon: Building2 },
   { key: 'webhooks', label: 'Webhooks', icon: Webhook },
+]
+
+// ─── Navigation categories (accordion groups) ────────────────────────────────
+interface NavCategory {
+  key: string
+  label: string
+  icon: React.ElementType
+  items: NavItem[]
+  defaultOpen?: boolean
+}
+
+const navCategories: NavCategory[] = [
+  {
+    key: 'market',
+    label: 'Enchères & Marché',
+    icon: Gavel,
+    defaultOpen: true,
+    items: [
+      { key: 'auctions', label: 'Enchères', icon: Gavel },
+      { key: 'map', label: 'Carte', icon: MapPin },
+      { key: 'prices', label: 'Prix', icon: TrendingUp },
+      { key: 'disputes', label: 'Litiges', icon: AlertTriangle },
+      { key: 'market-intelligence', label: 'Intelligence Marché', icon: Brain },
+      { key: 'quality-labels', label: 'Labels Qualité', icon: Award },
+    ],
+  },
+  {
+    key: 'people',
+    label: 'Utilisateurs',
+    icon: Users,
+    defaultOpen: true,
+    items: [
+      { key: 'users', label: 'Utilisateurs', icon: Users },
+      { key: 'cooperatives', label: 'Coopératives', icon: Building2 },
+      { key: 'accounts', label: 'Comptes', icon: Shield },
+      { key: 'permissions', label: 'Permissions', icon: KeyRound },
+    ],
+  },
+  {
+    key: 'monetization',
+    label: 'Monétisation',
+    icon: Wallet,
+    items: [
+      { key: 'wallet', label: 'Portefeuille', icon: Wallet },
+      { key: 'pdf-reports', label: 'Rapports PDF', icon: FileText },
+      { key: 'reports', label: 'Rapports', icon: FileBarChart },
+    ],
+  },
+  {
+    key: 'communication',
+    label: 'Communication',
+    icon: MessageSquare,
+    items: [
+      { key: 'chat', label: 'Chat', icon: MessageSquare },
+      { key: 'notifications', label: 'Notifications', icon: Bell },
+      { key: 'calendar', label: 'Calendrier', icon: CalendarDays },
+    ],
+  },
+  {
+    key: 'tools',
+    label: 'Outils',
+    icon: Settings,
+    items: [
+      { key: 'automation', label: 'Automation', icon: Bot },
+      { key: 'webhooks', label: 'Webhooks', icon: Webhook },
+      { key: 'mobile-preview', label: 'Mobile Preview', icon: Smartphone },
+      { key: 'settings', label: 'Paramètres', icon: Settings },
+    ],
+  },
 ]
 
 // ─── Page title map ────────────────────────────────────────────────────────────
@@ -169,7 +245,7 @@ const breadcrumbs: Record<PageKey, string[]> = {
   webhooks: ['Accueil', 'Webhooks'],
 }
 
-// ─── Sidebar Nav Item ──────────────────────────────────────────────────────────
+// ─── Sidebar Nav Item (leaf) ──────────────────────────────────────────────────
 function SidebarNavItem({
   item,
   active,
@@ -187,7 +263,7 @@ function SidebarNavItem({
     <button
       onClick={onClick}
       className={`
-        group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5
+        group relative flex w-full items-center gap-3 rounded-lg px-3 py-2
         text-sm font-medium transition-all duration-200
         ${
           active
@@ -197,10 +273,10 @@ function SidebarNavItem({
         ${collapsed ? 'justify-center px-2' : ''}
       `}
     >
-      <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-[#7dda7d]' : 'text-[#6dba6d] group-hover:text-[#7dda7d]'}`} />
+      <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-[#7dda7d]' : 'text-[#6dba6d] group-hover:text-[#7dda7d]'}`} />
       {!collapsed && <span className="truncate">{item.label}</span>}
       {active && !collapsed && (
-        <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#45A452]" />
+        <div className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[#45A452]" />
       )}
     </button>
   )
@@ -217,6 +293,82 @@ function SidebarNavItem({
   }
 
   return button
+}
+
+// ─── Sidebar Category (accordion group) ──────────────────────────────────────
+function SidebarCategory({
+  category,
+  currentPage,
+  collapsed,
+  onNavigate,
+  onClose,
+}: {
+  category: NavCategory
+  currentPage: PageKey
+  collapsed: boolean
+  onNavigate: (page: PageKey) => void
+  onClose?: () => void
+}) {
+  const [open, setOpen] = useState(category.defaultOpen ?? false)
+  const CatIcon = category.icon
+  const hasActive = category.items.some((i) => i.key === currentPage)
+
+  // Auto-open if a child page is active
+  React.useEffect(() => {
+    if (hasActive) setOpen(true)
+  }, [hasActive])
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => onNavigate(category.items[0].key)}
+            className="flex w-full items-center justify-center rounded-lg py-2.5 text-[#6dba6d] transition-colors hover:bg-[#223d22] hover:text-white"
+          >
+            <CatIcon className="h-5 w-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="font-medium">
+          {category.label}
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
+      <CollapsibleTrigger asChild>
+        <button
+          className={`
+            group flex w-full items-center gap-3 rounded-lg px-3 py-2.5
+            text-xs font-semibold uppercase tracking-wider transition-all duration-200
+            ${hasActive ? 'text-white' : 'text-[#6dba6d] hover:text-white'}
+          `}
+        >
+          <CatIcon className={`h-4 w-4 shrink-0 transition-colors ${hasActive ? 'text-[#7dda7d]' : ''}`} />
+          <span className="flex-1 truncate text-left">{category.label}</span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-0.5 space-y-0.5 pl-2.5 pr-0.5">
+        {category.items.map((item) => (
+          <SidebarNavItem
+            key={item.key}
+            item={item}
+            active={currentPage === item.key}
+            collapsed={collapsed}
+            onClick={() => {
+              onNavigate(item.key)
+              onClose?.()
+            }}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  )
 }
 
 // ─── Sidebar Content (shared between desktop & mobile) ─────────────────────────
@@ -247,18 +399,28 @@ function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-4">
+      <ScrollArea className="flex-1 px-3 py-4 [&>div>div]:!bg-[#2d5a2d]/40">
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
-            <SidebarNavItem
-              key={item.key}
-              item={item}
-              active={currentPage === item.key}
+          {/* Dashboard — always visible, standalone */}
+          <SidebarNavItem
+            item={{ key: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard }}
+            active={currentPage === 'dashboard'}
+            collapsed={collapsed}
+            onClick={() => { onNavigate('dashboard'); onClose?.() }}
+          />
+
+          {/* Divider */}
+          <div className="my-2 border-t border-[#1a3d1e]" />
+
+          {/* Accordion categories */}
+          {navCategories.map((cat) => (
+            <SidebarCategory
+              key={cat.key}
+              category={cat}
+              currentPage={currentPage}
               collapsed={collapsed}
-              onClick={() => {
-                onNavigate(item.key)
-                onClose?.()
-              }}
+              onNavigate={onNavigate}
+              onClose={onClose}
             />
           ))}
         </nav>
@@ -573,7 +735,7 @@ function TopHeader({ currentPage }: { currentPage: PageKey }) {
 function PageContent({ page }: { page: PageKey }) {
   // Dynamic imports for lazy loading
   const title = pageTitles[page]
-  const Icon = navItems.find((n) => n.key === page)?.icon || LayoutDashboard
+  const Icon = allNavItems.find((n) => n.key === page)?.icon || LayoutDashboard
 
   // Auth pages: no sidebar needed
   if (page === 'login') {

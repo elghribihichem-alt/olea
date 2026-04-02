@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       emailVerified: account.emailVerified,
     }
 
-    return new NextResponse(safeJson(user), {
+    return new NextResponse(safeJson({ user }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })

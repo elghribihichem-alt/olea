@@ -387,9 +387,9 @@ function BottomTabBar({ active = 0 }: { active?: number }) {
 
 // ===================== PHONE FRAME =====================
 function PhoneFrame({ children, size = 'sm' }: { children: React.ReactNode; size?: 'sm' | 'lg' }) {
-  const w = size === 'sm' ? 200 : 280
-  const h = size === 'sm' ? 400 : 580
-  const innerScale = size === 'sm' ? 0.64 : 0.9
+  const w = size === 'sm' ? 200 : 700
+  const h = size === 'sm' ? 400 : 696
+  const innerScale = size === 'sm' ? 0.64 : 1
 
   return (
     <div
@@ -1816,8 +1816,8 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-        <DialogHeader className="px-6 pt-6 pb-0">
+      <DialogContent className="!w-[90vw] !max-w-[90vw] h-[90vh] overflow-hidden p-0 flex flex-col gap-0">
+        <DialogHeader className="px-6 pt-6 pb-0 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1" style={{ borderColor: cat?.color, color: cat?.color }}>
               <span>{cat?.icon}</span> {cat?.name}
@@ -1827,11 +1827,12 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
           <DialogTitle className="text-xl">{screen.nameFr}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-80px)]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="px-6 pb-6 pt-2">
-            <div className="flex gap-6">
+            {/* Responsive layout: stacked on small, side-by-side on large */}
+            <div className="flex flex-col xl:flex-row gap-6">
               {/* Left: phone mockup */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 flex justify-center">
                 <PhoneFrame size="lg">
                   {ScreenComp && <ScreenComp />}
                 </PhoneFrame>
@@ -1842,7 +1843,7 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
                 {/* Description */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-1">Description</h4>
-                  <p className="text-sm text-gray-600">{screen.fullDescription}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{screen.fullDescription}</p>
                 </div>
 
                 {/* API Endpoint */}
@@ -1855,7 +1856,7 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
                       }}>
                         {screen.apiMethod}
                       </span>
-                      <code className="text-xs text-gray-700 flex-1 truncate">{screen.apiEndpoint}</code>
+                      <code className="text-xs text-gray-700 flex-1 break-all">{screen.apiEndpoint}</code>
                       <button
                         onClick={() => copyText(screen.apiEndpoint, 'endpoint')}
                         className="flex-shrink-0 p-1 rounded hover:bg-gray-200 transition-colors"
@@ -1871,7 +1872,7 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Payload</h4>
                     <div className="relative">
-                      <pre className="text-xs bg-gray-900 text-green-400 p-3 rounded-lg overflow-x-auto font-mono">{screen.apiPayload}</pre>
+                      <pre className="text-xs bg-gray-900 text-green-400 p-3 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap">{screen.apiPayload}</pre>
                       <button
                         onClick={() => copyText(screen.apiPayload, 'payload')}
                         className="absolute top-2 right-2 p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
@@ -1898,22 +1899,22 @@ function ScreenDetailDialog({ screen, open, onOpenChange }: { screen: MobileScre
                 {screen.inputFields.length > 0 && (
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Champs de saisie</h4>
-                    <div className="rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="rounded-lg border border-gray-200 overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-gray-50">
-                            <th className="text-left px-3 py-2 font-medium text-gray-600">Nom</th>
-                            <th className="text-left px-3 py-2 font-medium text-gray-600">Type</th>
-                            <th className="text-left px-3 py-2 font-medium text-gray-600">Requis</th>
-                            <th className="text-left px-3 py-2 font-medium text-gray-600">Placeholder</th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-600 whitespace-nowrap">Nom</th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-600 whitespace-nowrap">Type</th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-600 whitespace-nowrap">Requis</th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-600 whitespace-nowrap">Placeholder</th>
                           </tr>
                         </thead>
                         <tbody>
                           {screen.inputFields.map(field => (
                             <tr key={field.name} className="border-t border-gray-100">
-                              <td className="px-3 py-1.5 font-mono font-medium text-gray-900">{field.name}</td>
-                              <td className="px-3 py-1.5"><Badge variant="outline" className="text-[10px]">{field.type}</Badge></td>
-                              <td className="px-3 py-1.5">
+                              <td className="px-3 py-1.5 font-mono font-medium text-gray-900 whitespace-nowrap">{field.name}</td>
+                              <td className="px-3 py-1.5 whitespace-nowrap"><Badge variant="outline" className="text-[10px]">{field.type}</Badge></td>
+                              <td className="px-3 py-1.5 whitespace-nowrap">
                                 {field.required ? (
                                   <span className="text-green-600 font-medium">Oui</span>
                                 ) : (

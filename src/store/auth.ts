@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (!res.ok) {
         const data = await res.json()
-        set({ isLoading: false, error: data.message || 'Login failed' })
+        set({ isLoading: false, error: data.error || data.message || 'Login failed' })
         return false
       }
 

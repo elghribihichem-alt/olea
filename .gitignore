@@ -66,3 +66,15 @@ server.log
 
 # OS
 Thumbs.db
+
+# Sandbox/temp files
+.accesslog
+.config.json
+.stats
+.zscripts/
+
+# Worklog
+worklog.md
+
+# Download artifacts
+/download/

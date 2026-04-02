@@ -7,27 +7,9 @@ function safeJson<T>(data: T): string {
   )
 }
 
-async function getSession(request: NextRequest) {
-  const sessionToken = request.cookies.get('session_token')?.value
-  if (!sessionToken) return null
-  const account = await db.backOfficeAccount.findFirst({
-    where: { sessionToken, sessionExpiresAt: { gt: new Date() } },
-    select: { id: true, name: true, email: true, role: true },
-  })
-  return account
-}
-
 // GET /api/cooperatives — list cooperatives
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request)
-    if (!session) {
-      return new NextResponse(safeJson({ error: 'Non authentifié' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
@@ -67,37 +49,27 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     })
 
-    return new NextResponse(safeJson({ cooperatives, stats, regions }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return NextResponse.json({ cooperatives, stats, regions })
   } catch (error) {
-    return new NextResponse(safeJson({ error: 'Erreur interne du serveur' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    console.error('Cooperatives fetch error:', error)
+    return NextResponse.json(
+      { error: 'Erreur interne du serveur' },
+      { status: 500 }
+    )
   }
 }
 
 // POST /api/cooperatives — create cooperative
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request)
-    if (!session) {
-      return new NextResponse(safeJson({ error: 'Non authentifié' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
     const body = await request.json()
     const { name, description, regionId, address, phone, email, website, memberCount, annualVolume, status, certification, foundedYear, contactPerson } = body
 
     if (!name) {
-      return new NextResponse(safeJson({ error: 'Le nom est requis' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return NextResponse.json(
+        { error: 'Le nom est requis' },
+        { status: 400 }
+      )
     }
 
     const cooperative = await db.cooperative.create({
@@ -119,14 +91,12 @@ export async function POST(request: NextRequest) {
       include: { region: { select: { id: true, name: true } } },
     })
 
-    return new NextResponse(safeJson({ cooperative }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return NextResponse.json({ cooperative }, { status: 201 })
   } catch (error) {
-    return new NextResponse(safeJson({ error: 'Erreur interne du serveur' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    console.error('Cooperatives create error:', error)
+    return NextResponse.json(
+      { error: 'Erreur interne du serveur' },
+      { status: 500 }
+    )
   }
 }
