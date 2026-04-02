@@ -196,17 +196,19 @@ export default function DashboardPage() {
         fetch('/api/dashboard/recent'),
       ])
 
-      if (!statsRes.ok || !chartsRes.ok || !recentRes.ok) throw new Error('API error')
-
-      const [statsData, chartsData, recentData] = await Promise.all([
-        statsRes.json(),
-        chartsRes.json(),
-        recentRes.json(),
-      ])
-
-      setStats(statsData)
-      setCharts(chartsData)
-      setRecent(recentData)
+      // Parse each response independently — partial failures are OK
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        if (!statsData.error) setStats(statsData)
+      }
+      if (chartsRes.ok) {
+        const chartsData = await chartsRes.json()
+        if (!chartsData.error) setCharts(chartsData)
+      }
+      if (recentRes.ok) {
+        const recentData = await recentRes.json()
+        if (!recentData.error) setRecent(recentData)
+      }
     } catch (error) {
       console.error('Dashboard fetch error:', error)
     } finally {
@@ -220,7 +222,7 @@ export default function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />
 
-  if (!stats || !charts || !recent) {
+  if (!stats && !charts && !recent) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <p className="text-muted-foreground">Erreur de chargement des données</p>
@@ -230,7 +232,7 @@ export default function DashboardPage() {
 
   // ── Prepare data ───────────────────────────────────────────────────────────
 
-  const statusDistribution = charts.monthlyAuctions.map((m) => ({
+  const statusDistribution = (charts?.monthlyAuctions || []).map((m) => ({
     name: STATUS_LABELS[m.status] || m.status,
     value: m.count,
     color: STATUS_COLORS[m.status] || '#94a3b8',
@@ -257,7 +259,7 @@ export default function DashboardPage() {
     },
     yAxis: {
       type: 'category',
-      data: [...charts.auctionsByRegion].sort((a, b) => b.count - a.count).map((r) => r.name),
+      data: [...(charts?.auctionsByRegion || [])].sort((a, b) => b.count - a.count).map((r) => r.name),
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { fontSize: 11, color: '#475569' },
@@ -265,10 +267,10 @@ export default function DashboardPage() {
     series: [
       {
         type: 'bar',
-        data: [...charts.auctionsByRegion]
+        data: [...(charts?.auctionsByRegion || [])]
           .sort((a, b) => b.count - a.count)
           .map((_, i) => ({
-            value: [...charts.auctionsByRegion].sort((a, b) => b.count - a.count)[i].count,
+            value: [...(charts?.auctionsByRegion || [])].sort((a, b) => b.count - a.count)[i].count,
             itemStyle: {
               color: {
                 type: 'linear',
@@ -336,7 +338,7 @@ export default function DashboardPage() {
   }
 
   // 3. Price Evolution — Gradient Area with DataZoom
-  const priceData = charts.priceEvolution.map((p) => ({
+  const priceData = (charts?.priceEvolution || []).map((p) => ({
     month: p.month,
     value: p.avgPrice,
     label: (() => {
@@ -479,7 +481,7 @@ export default function DashboardPage() {
             },
           },
         ],
-        data: charts.volumeByRegion.map((v, i) => ({
+        data: (charts?.volumeByRegion || []).map((v, i) => ({
           name: v.name,
           value: v.volume,
           itemStyle: {
@@ -541,7 +543,7 @@ export default function DashboardPage() {
             itemStyle: { borderWidth: 1, borderColor: '#f1f5f9' },
           },
         ],
-        data: charts.auctionsByOliveType.map((o, i) => ({
+        data: (charts?.auctionsByOliveType || []).map((o, i) => ({
           name: o.name,
           value: o.count,
           itemStyle: { color: OLIVE_COLORS[i % OLIVE_COLORS.length] },
@@ -707,7 +709,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="h-72">
-            {charts.priceEvolution.length > 0 ? (
+            {charts?.priceEvolution && charts.priceEvolution.length > 0 ? (
               <ReactECharts
                 option={priceLineOption}
                 style={{ height: '100%', width: '100%' }}
@@ -803,7 +805,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {recent.recentAuctions.map((auction) => (
+                    {(recent?.recentAuctions || []).map((auction) => (
                       <tr key={auction.id} className="hover:bg-muted/50 transition-colors">
                         <td className="py-3 pr-4">
                           <div className="font-medium text-foreground max-w-[200px] truncate">
@@ -861,7 +863,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {recent.recentBids.map((bid) => (
+                    {(recent?.recentBids || []).map((bid) => (
                       <tr key={bid.id} className="hover:bg-muted/50 transition-colors">
                         <td className="py-3 pr-4">
                           <div className="font-medium text-foreground max-w-[180px] truncate">
@@ -904,7 +906,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {recent.recentUsers.map((user) => (
+                    {(recent?.recentUsers || []).map((user) => (
                       <tr key={user.id} className="hover:bg-muted/50 transition-colors">
                         <td className="py-3 pr-4">
                           <div className="font-medium text-foreground">

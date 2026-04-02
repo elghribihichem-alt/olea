@@ -64,13 +64,12 @@ export async function POST(
           timestamp: new Date().toISOString(),
           data: { message: 'Test de livraison depuis Olea', webhookId: id },
         }),
-        responseStatus: responseStatus ?? 0,
-        responseBody: responseBody
+        statusCode: responseStatus ?? 0,
+        response: responseBody
           ? responseBody.substring(0, 2000)
           : null,
         success,
         duration,
-        triggeredBy: 'TEST',
       },
     })
 
