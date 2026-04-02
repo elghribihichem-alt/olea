@@ -387,9 +387,9 @@ function BottomTabBar({ active = 0 }: { active?: number }) {
 
 // ===================== PHONE FRAME =====================
 function PhoneFrame({ children, size = 'sm' }: { children: React.ReactNode; size?: 'sm' | 'lg' }) {
-  const w = size === 'sm' ? 200 : 700
-  const h = size === 'sm' ? 400 : 696
-  const innerScale = size === 'sm' ? 0.64 : 1
+  const w = size === 'sm' ? 200 : 320
+  const h = size === 'sm' ? 400 : 650
+  const innerScale = size === 'sm' ? 0.64 : 0.52
 
   return (
     <div

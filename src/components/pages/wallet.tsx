@@ -205,9 +205,9 @@ export default function WalletPage() {
 
       if (chartRes.ok) {
         const walletData = await chartRes.json()
-        if (!stats) {
-          // Use fallback data from wallet endpoint if stats failed
-          setStats({
+        // Only set fallback if stats endpoint failed
+        if (!statsRes.ok) {
+          setStats((prev) => prev ?? {
             currentBalance: walletData.balance || 0,
             creditsThisMonth: walletData.creditsThisMonth || 0,
             debitsThisMonth: walletData.debitsThisMonth || 0,
@@ -225,7 +225,7 @@ export default function WalletPage() {
     } catch (error) {
       console.error('Wallet fetch error:', error)
     }
-  }, [stats])
+  }, [])
 
   const fetchTransactions = useCallback(async () => {
     try {
