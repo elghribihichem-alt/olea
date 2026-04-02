@@ -32,6 +32,11 @@ import {
   CalendarDays,
   Building2,
   Webhook,
+  Lock,
+  Unlock,
+  Globe,
+  Maximize,
+  Minimize,
 } from 'lucide-react'
 import { useNavigation, type PageKey } from '@/stores/navigation'
 import { useAuthStore } from '@/store/auth'
@@ -91,6 +96,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 // ─── Navigation items definition ──────────────────────────────────────────────
 interface NavItem {
@@ -522,6 +536,54 @@ function TopHeader({ currentPage }: { currentPage: PageKey }) {
     createdAt: string
   }>>([])
 
+  // Screen lock state
+  const [showLockModal, setShowLockModal] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const DEFAULT_PIN = '225588'
+
+  // Language state
+  const [lang, setLang] = useState('fr')
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen().catch(() => {})
+      setIsFullscreen(false)
+    }
+  }
+
+  // Listen for fullscreen changes (user may press F11/Esc)
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
+
+  // Handle PIN submit
+  const handlePinSubmit = () => {
+    if (pinInput === DEFAULT_PIN) {
+      setIsLocked(false)
+      setPinInput('')
+      setPinError('')
+      setShowLockModal(false)
+    } else {
+      setPinError('Code PIN incorrect')
+      setPinInput('')
+    }
+  }
+
+  // Handle PIN key press
+  const handlePinKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handlePinSubmit()
+  }
+
   // Fetch unread count and recent notifications
   useEffect(() => {
     if (currentPage === 'login' || currentPage === 'forgot-password') return
@@ -691,6 +753,83 @@ function TopHeader({ currentPage }: { currentPage: PageKey }) {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Screen lock */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsLocked(true)
+                    setPinInput('')
+                    setPinError('')
+                    setShowLockModal(true)
+                  }}
+                >
+                  {isLocked ? (
+                    <Unlock className="h-5 w-5 text-amber-500" />
+                  ) : (
+                    <Lock className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isLocked ? 'Déverrouiller' : "Verrouiller l'écran"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Language switcher */}
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Globe className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Langue</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem
+                className={lang === 'fr' ? 'bg-accent' : ''}
+                onClick={() => setLang('fr')}
+              >
+                🇫🇷 Français
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={lang === 'en' ? 'bg-accent' : ''}
+                onClick={() => setLang('en')}
+              >
+                🇬🇧 English
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className={lang === 'ar' ? 'bg-accent' : ''}
+                onClick={() => setLang('ar')}
+              >
+                🇹🇳 العربية
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Fullscreen toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleFullscreen}
+                >
+                  {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* User avatar dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -727,6 +866,74 @@ function TopHeader({ currentPage }: { currentPage: PageKey }) {
           </DropdownMenu>
         </div>
       </header>
+
+      {/* Lock screen overlay */}
+      {isLocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <Dialog open={showLockModal} onOpenChange={(open) => {
+            if (!open && isLocked) return // prevent closing without correct PIN
+            setShowLockModal(open)
+          }}>
+            <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 mb-2">
+                  <Lock className="h-8 w-8 text-amber-600" />
+                </div>
+                <DialogTitle className="text-center text-xl">Écran verrouillé</DialogTitle>
+                <DialogDescription className="text-center">
+                  Entrez votre code PIN pour déverrouiller
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="flex gap-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`flex h-12 w-11 items-center justify-center rounded-lg border-2 text-lg font-bold transition-all duration-200 ${
+                        pinInput.length > i
+                          ? 'border-[#45A452] bg-[#45A452]/10 text-[#45A452]'
+                          : 'border-muted-foreground/30 text-muted-foreground/30'
+                      }`}
+                    >
+                      {pinInput.length > i ? '●' : ''}
+                    </div>
+                  ))}
+                </div>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={pinInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                    setPinInput(val)
+                    setPinError('')
+                  }}
+                  onKeyDown={handlePinKeyDown}
+                  placeholder="Entrez le code PIN"
+                  className="text-center text-2xl tracking-[0.5em] font-mono"
+                  autoFocus
+                />
+                {pinError && (
+                  <p className="text-sm text-red-500 font-medium animate-in fade-in slide-in-from-top-1 duration-200">
+                    {pinError}
+                  </p>
+                )}
+              </div>
+              <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+                <Button
+                  onClick={handlePinSubmit}
+                  className="w-full bg-[#45A452] hover:bg-[#3a8c44] text-white"
+                  disabled={pinInput.length < 6}
+                >
+                  <Unlock className="mr-2 h-4 w-4" />
+                  Déverrouiller
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
     </>
   )
 }
